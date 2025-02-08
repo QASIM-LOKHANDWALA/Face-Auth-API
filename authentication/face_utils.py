@@ -13,4 +13,5 @@ def compare_embeddings(embedding1, embedding2):
     emb1 = np.frombuffer(embedding1, dtype=np.float32)
     emb2 = np.frombuffer(embedding2, dtype=np.float32)
     similarity = np.dot(emb1, emb2) / (np.linalg.norm(emb1) * np.linalg.norm(emb2))
-    return similarity >= 0.95
+    print(similarity)
+    return similarity >= 0.90
