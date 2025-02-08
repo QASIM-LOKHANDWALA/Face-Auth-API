@@ -8,7 +8,8 @@ import base64
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from .models import User
-
+import os
+...
 class RegisterView(APIView):
     permission_classes = [AllowAny]
 
@@ -17,8 +18,12 @@ class RegisterView(APIView):
         password = request.data["password"]
         face_image = request.data["face_image"]
 
+        temp_dir = "temp"
+        if not os.path.exists(temp_dir):
+            os.makedirs(temp_dir) 
+        
+        image_path = os.path.join(temp_dir, f"{username}.jpg")
         image_data = base64.b64decode(face_image.split(",")[1])
-        image_path = f"temp/{username}.jpg"
         with open(image_path, "wb") as f:
             f.write(image_data)
 
