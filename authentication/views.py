@@ -1,7 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
-from .face_utils import extract_face_embedding, compare_embeddings
+from .face_utils import register_face, verify_face
 from django.contrib.auth.hashers import make_password
 from django.core.files.base import ContentFile
 import base64
@@ -9,55 +9,62 @@ from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from .models import User
 import os
-...
+
 class RegisterView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        username = request.data["username"]
-        password = request.data["password"]
-        face_image = request.data["face_image"]
+        try:
+            username = request.data["username"]
+            password = request.data["password"]
+            face_image = request.data["face_image"]
+            
+            image_data = base64.b64decode(face_image.split(",")[1])
+            
+            face_id = register_face(image_data, username)
+            if not face_id:
+                return Response({"error": "Face not detected or registration failed"}, status=400)
 
-        temp_dir = "temp"
-        if not os.path.exists(temp_dir):
-            os.makedirs(temp_dir) 
-        
-        image_path = os.path.join(temp_dir, f"{username}.jpg")
-        image_data = base64.b64decode(face_image.split(",")[1])
-        with open(image_path, "wb") as f:
-            f.write(image_data)
-
-        embedding = extract_face_embedding(image_path)
-        if not embedding:
-            return Response({"error": "Face not detected"}, status=400)
-
-        user = User(username=username, password=make_password(password), face_embedding=embedding)
-        user.save()
-        return Response({"message": "User registered successfully"}, status=201)
-
+            user = User(
+                username=username,
+                password=make_password(password),
+                face_id=face_id
+            )
+            user.save()
+            
+            return Response({
+                "message": "User registered successfully",
+                "face_id": face_id
+            }, status=201)
+            
+        except Exception as e:
+            return Response({"error": str(e)}, status=400)
 
 class LoginView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        username = request.data["username"]
-        face_image = request.data["face_image"]
-
-        image_data = base64.b64decode(face_image.split(",")[1])
-        image_path = f"temp/{username}.jpg"
-        with open(image_path, "wb") as f:
-            f.write(image_data)
-
-        embedding = extract_face_embedding(image_path)
-        if not embedding:
-            return Response({"error": "Face not detected"}, status=400)
-
         try:
-            user = User.objects.get(username=username)
-            if compare_embeddings(embedding, user.face_embedding):
+            username = request.data["username"]
+            face_image = request.data["face_image"]
+
+            image_data = base64.b64decode(face_image.split(",")[1])
+
+            try:
+                user = User.objects.get(username=username)
+            except User.DoesNotExist:
+                return Response({"error": "User not found"}, status=404)
+
+            is_match = verify_face(image_data, username)
+            
+            if is_match:
                 refresh = RefreshToken.for_user(user)
-                return Response({"refresh": str(refresh), "access": str(refresh.access_token)})
+                return Response({
+                    "refresh": str(refresh),
+                    "access": str(refresh.access_token)
+                })
             else:
-                return Response({"error": "Face mismatch"}, status=401)
-        except User.DoesNotExist:
-            return Response({"error": "User not found"}, status=404)
+                return Response({"error": "Face verification failed"}, status=401)
+                
+        except Exception as e:
+            return Response({"error": str(e)}, status=400)
