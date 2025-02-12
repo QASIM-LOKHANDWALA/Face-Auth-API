@@ -40,6 +40,7 @@ def register_face(image_data, subject):
         return None
 
 def verify_face(image_data, subject):
+    print(subject)
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as temp_file:
             temp_file.write(image_data)
@@ -63,6 +64,8 @@ def verify_face(image_data, subject):
                 face_result = result['result'][0]
                 if face_result.get('subjects') and len(face_result['subjects']) > 0:
                     matched_subject = face_result['subjects'][0]
+                    similarity = matched_subject['similarity']
+                    print(f"Similarity: {similarity}\nMatched Subject: {matched_subject['subject']}")
                     return (matched_subject['subject'] == subject and 
                             matched_subject['similarity'] >= 0.9)
 

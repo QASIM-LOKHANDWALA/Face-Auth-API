@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Face Authentication</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/js/all.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="bg-gray-100">
+    <div class="min-h-screen flex items-center justify-center">
+      <div class="max-w-md w-full space-y-8 p-8 bg-white rounded-lg shadow-lg">
+        <div class="flex border-b">
+          <button
+            onclick="switchTab('login')"
+            id="loginTab"
+            class="px-4 py-2 text-blue-600 border-b-2 border-blue-600"
+          >
+            Login
+          </button>
+          <button
+            onclick="switchTab('register')"
+            id="registerTab"
+            class="px-4 py-2 text-gray-500"
+          >
+            Register
+          </button>
+        </div>
+
+        <div id="loginForm" class="space-y-6">
+          <div class="text-center">
+            <h2 class="text-3xl font-bold">Login</h2>
+            <p class="text-gray-600 mt-2">Login with your face and username</p>
+          </div>
+
+          <div class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700"
+                >Username</label
+              >
+              <input
+                type="text"
+                id="loginUsername"
+                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
+              />
+            </div>
+
+            <div class="relative">
+              <video
+                id="loginVideo"
+                class="w-full h-64 border rounded-lg hidden"
+              ></video>
+              <canvas
+                id="loginCanvas"
+                class="w-full h-64 border rounded-lg hidden"
+              ></canvas>
+              <button
+                onclick="startCamera('login')"
+                id="loginCameraBtn"
+                class="w-full h-64 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center"
+              >
+                <i class="fas fa-camera text-4xl text-gray-400"></i>
+              </button>
+            </div>
+
+            <button
+              onclick="handleLogin()"
+              class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700"
+            >
+              Login
+            </button>
+          </div>
+        </div>
+
+        <div id="registerForm" class="space-y-6 hidden">
+          <div class="text-center">
+            <h2 class="text-3xl font-bold">Register</h2>
+            <p class="text-gray-600 mt-2">Create a new account</p>
+          </div>
+
+          <div class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700"
+                >Username</label
+              >
+              <input
+                type="text"
+                id="registerUsername"
+                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
+              />
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700"
+                >Password</label
+              >
+              <input
+                type="password"
+                id="registerPassword"
+                class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm"
+              />
+            </div>
+
+            <div class="relative">
+              <video
+                id="registerVideo"
+                class="w-full h-64 border rounded-lg hidden"
+              ></video>
+              <canvas
+                id="registerCanvas"
+                class="w-full h-64 border rounded-lg hidden"
+              ></canvas>
+              <button
+                onclick="startCamera('register')"
+                id="registerCameraBtn"
+                class="w-full h-64 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center"
+              >
+                <i class="fas fa-camera text-4xl text-gray-400"></i>
+              </button>
+            </div>
+
+            <button
+              onclick="handleRegister()"
+              class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700"
+            >
+              Register
+            </button>
+          </div>
+        </div>
+
+        <div
+          id="alertMessage"
+          class="hidden fixed top-4 right-4 p-4 rounded-md"
+        ></div>
+      </div>
+    </div>
+
+    <script>
+      let stream = null;
+
+      function switchTab(tab) {
+        const loginForm = document.getElementById("loginForm");
+        const registerForm = document.getElementById("registerForm");
+        const loginTab = document.getElementById("loginTab");
+        const registerTab = document.getElementById("registerTab");
+
+        if (tab === "login") {
+          loginForm.classList.remove("hidden");
+          registerForm.classList.add("hidden");
+          loginTab.classList.add(
+            "text-blue-600",
+            "border-b-2",
+            "border-blue-600"
+          );
+          loginTab.classList.remove("text-gray-500");
+          registerTab.classList.remove(
+            "text-blue-600",
+            "border-b-2",
+            "border-blue-600"
+          );
+          registerTab.classList.add("text-gray-500");
+        } else {
+          loginForm.classList.add("hidden");
+          registerForm.classList.remove("hidden");
+          registerTab.classList.add(
+            "text-blue-600",
+            "border-b-2",
+            "border-blue-600"
+          );
+          registerTab.classList.remove("text-gray-500");
+          loginTab.classList.remove(
+            "text-blue-600",
+            "border-b-2",
+            "border-blue-600"
+          );
+          loginTab.classList.add("text-gray-500");
+        }
+      }
+
+      async function startCamera(mode) {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          const video = document.getElementById(`${mode}Video`);
+          const cameraBtn = document.getElementById(`${mode}CameraBtn`);
+
+          video.srcObject = stream;
+          video.classList.remove("hidden");
+          cameraBtn.classList.add("hidden");
+          video.play();
+
+          const captureBtn = document.createElement("button");
+          captureBtn.innerHTML = '<i class="fas fa-camera"></i> Capture';
+          captureBtn.className =
+            "absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white px-4 py-2 rounded-md";
+          captureBtn.onclick = () => captureImage(mode);
+          video.parentElement.appendChild(captureBtn);
+        } catch (err) {
+          showAlert(
+            "Error accessing camera. Please check permissions.",
+            "error"
+          );
+        }
+      }
+
+      function captureImage(mode) {
+        const video = document.getElementById(`${mode}Video`);
+        const canvas = document.getElementById(`${mode}Canvas`);
+        const context = canvas.getContext("2d");
+
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        if (stream) {
+          stream.getTracks().forEach((track) => track.stop());
+        }
+
+        canvas.classList.remove("hidden");
+        video.classList.add("hidden");
+        video.parentElement.querySelector("button:last-child").remove();
+
+        const retakeBtn = document.createElement("button");
+        retakeBtn.innerHTML = '<i class="fas fa-redo"></i> Retake';
+        retakeBtn.className =
+          "absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white px-4 py-2 rounded-md";
+        retakeBtn.onclick = () => {
+          canvas.classList.add("hidden");
+          startCamera(mode);
+        };
+        canvas.parentElement.appendChild(retakeBtn);
+      }
+
+      async function handleRegister() {
+        const username = document.getElementById("registerUsername").value;
+        const password = document.getElementById("registerPassword").value;
+        const canvas = document.getElementById("registerCanvas");
+
+        if (!username || !password) {
+          showAlert("Please fill in all fields", "error");
+          return;
+        }
+
+        if (canvas.classList.contains("hidden")) {
+          showAlert("Please capture your face image", "error");
+          return;
+        }
+
+        try {
+          const imageData = canvas.toDataURL("image/jpeg");
+
+          const response = await fetch("http://127.0.0.1:8080/auth/register/", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              username: username,
+              password: password,
+              face_image: imageData,
+            }),
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+            showAlert("Registration successful!", "success");
+            switchTab("login");
+          } else {
+            console.error("Registration failed:", data);
+            showAlert(data.error || "Registration failed", "error");
+          }
+        } catch (err) {
+          console.error("Registration error:", err);
+          showAlert("Error during registration", "error");
+        }
+      }
+
+      async function handleLogin() {
+        const username = document.getElementById("loginUsername").value;
+        const canvas = document.getElementById("loginCanvas");
+
+        if (!username) {
+          showAlert("Please enter your username", "error");
+          return;
+        }
+
+        if (canvas.classList.contains("hidden")) {
+          showAlert("Please capture your face image", "error");
+          return;
+        }
+
+        try {
+          console.log("Attempting login...");
+          const imageData = canvas.toDataURL("image/jpeg");
+
+          const response = await fetch("http://127.0.0.1:8080/auth/login/", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              username: username,
+              face_image: imageData,
+            }),
+          });
+
+          const data = await response.json();
+          console.log("Login response:", data);
+
+          if (response.ok) {
+            localStorage.setItem("access_token", data.access);
+            localStorage.setItem("refresh_token", data.refresh);
+            showAlert("Login successful!", "success");
+          } else {
+            console.error("Login failed:", data);
+            showAlert(data.error || "Login failed", "error");
+          }
+        } catch (err) {
+          console.error("Login error:", err);
+          showAlert("Error during login", "error");
+        }
+      }
+
+      function showAlert(message, type) {
+        const alertDiv = document.getElementById("alertMessage");
+        alertDiv.textContent = message;
+        alertDiv.classList.remove("hidden");
+
+        if (type === "error") {
+          alertDiv.className =
+            "fixed top-4 right-4 p-4 rounded-md bg-red-100 text-red-700";
+        } else {
+          alertDiv.className =
+            "fixed top-4 right-4 p-4 rounded-md bg-green-100 text-green-700";
+        }
+
+        setTimeout(() => {
+          alertDiv.classList.add("hidden");
+        }, 3000);
+      }
+    </script>
+  </body>
+</html>
