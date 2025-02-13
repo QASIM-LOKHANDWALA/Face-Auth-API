@@ -3,12 +3,12 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 from .face_utils import register_face, verify_face
 from django.contrib.auth.hashers import make_password
-from django.core.files.base import ContentFile
 import base64
-from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 from .models import User        
-from django.views.generic import TemplateView
+from django.shortcuts import render, redirect
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
 
 class RegisterView(APIView):
     permission_classes = [AllowAny]
@@ -79,5 +79,46 @@ class LoginView(APIView):
             print(f"Login error: {str(e)}")
             return Response({"error": str(e)}, status=400)
 
-class AuthUIView(TemplateView):
-    template_name = "auth/index.html"
+@method_decorator(csrf_exempt, name='dispatch')
+class AuthUIView(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request, *args, **kwargs):
+        redirect_url = request.GET.get("redirect_url", "")
+        if not redirect_url:
+            return Response({"error": "Missing redirect_url"}, status=400)
+        request.session["redirect_url"] = redirect_url
+        return render(request, "auth/index.html")
+    
+    def post(self, request, *args, **kwargs):
+        try:
+            username = request.data.get("username")
+            face_image = request.data.get("face_image")
+            redirect_url = request.session.get("redirect_url")
+
+            if not all([username, face_image, redirect_url]):
+                return Response({"error": "Missing required parameters"}, status=400)
+
+            try:
+                image_data = base64.b64decode(face_image.split(",")[1])
+            except:
+                return Response({"error": "Invalid face image format"}, status=400)
+
+            try:
+                user = User.objects.get(username=username)
+            except User.DoesNotExist:
+                return Response({"error": "User not found"}, status=404)
+
+            is_match = verify_face(image_data, username)
+            if not is_match:
+                return Response({"error": "Face verification failed"}, status=401)
+
+            refresh = RefreshToken.for_user(user)
+            access_token = str(refresh.access_token)
+
+            final_redirect_url = f"{redirect_url}?token={access_token}"
+            print("Redirecting to:", final_redirect_url)
+            return redirect(final_redirect_url)
+
+        except Exception as e:
+            return Response({"error": str(e)}, status=400)
