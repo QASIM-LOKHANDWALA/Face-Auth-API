@@ -40,7 +40,6 @@ def register_face(image_data, subject):
         return None
 
 def verify_face(image_data, subject):
-    print(subject)
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as temp_file:
             temp_file.write(image_data)
@@ -50,7 +49,7 @@ def verify_face(image_data, subject):
 
         url = f"{COMPREFACE_URL}/recognition/recognize"
         files = {'file': ('image.jpg', file_obj, 'image/jpeg')}
-        data = {'det_prob_threshold': 0.8, 'limit': 1, 'prediction_count': 1}
+        data = {'det_prob_threshold': 0.8, 'limit': 5, 'prediction_count': 5}
         headers = {"x-api-key": API_KEY}
 
         response = requests.post(url, files=files, data=data, headers=headers)
@@ -60,14 +59,15 @@ def verify_face(image_data, subject):
 
         if response.status_code == 200:
             result = response.json()
+
             if result.get('result') and len(result['result']) > 0:
                 face_result = result['result'][0]
+
                 if face_result.get('subjects') and len(face_result['subjects']) > 0:
-                    matched_subject = face_result['subjects'][0]
-                    similarity = matched_subject['similarity']
-                    print(f"Similarity: {similarity}\nMatched Subject: {matched_subject['subject']}")
-                    return (matched_subject['subject'] == subject and 
-                            matched_subject['similarity'] >= 0.9)
+                    for matched_subject in face_result['subjects']:
+                        if matched_subject['subject'] == subject and matched_subject['similarity'] >= 0.9:
+                            print(f"Matched Subject: {matched_subject['subject']} with similarity: {matched_subject['similarity']}")
+                            return True
 
         return False
 
